@@ -2,7 +2,7 @@
 
 # Compiler command
 CC=g++
-CFLAGS=-O3 -std=c++0x -fopenmp -Wall -Wextra
+CFLAGS=-O3 -std=c++11 -fopenmp -Wall -Wextra
 
 # Executable
 EXE=LIFE
@@ -20,6 +20,7 @@ OBJS:=$(addprefix $(ODIR)/,$(notdir $(SRCS:.cpp=.o)))
 # Include and library files
 INC=
 LIB=-llapack -lboost_system -lboost_filesystem
+LIB+=-L/usr/local/lib
 
 # Build LIFE
 $(EXE): $(OBJS)

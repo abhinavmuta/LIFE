@@ -21,6 +21,7 @@
 
 // Includes
 #include "params.h"
+#include <fstream>
 
 // Forward declarations
 class GridClass;
