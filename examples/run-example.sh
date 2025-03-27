@@ -34,8 +34,12 @@ rm -rf $case/LIFE $case/Results
 # Copy the params.h file into source folder
 cp $case/params.h ../inc/params.h
 
+# Copy the custom.cpp file into source folder
+# cp $case/custom.h ../inc/custom.h
+# cp $case/custom.cpp ../src/custom.cpp
+
 # Build LIFE
-(cd .. && make clean && make)
+(cd .. && make clean && make -j)
 
 # Copy LIFE to case folder
 cp ../LIFE $case/.
