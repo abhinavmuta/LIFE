@@ -105,6 +105,7 @@ public:
 	void writeInfo();						// Write info every tinfo time steps
 	void writeLog();						// Write log data at start
 	void writeVTK();						// Write grid VTK
+	void writeTracerVelocity();				// Write velocity at 5 tracer points
 	void writeRestart();					// Write restart file
 	void readRestart();						// Read restart file
 	void startClock();						// Start the clock for getting MLUPS
@@ -131,6 +132,7 @@ private:
 	// Helper routines
 	array<int, dims> getNormalVector(int i, int j, eDirectionType &normalDirection);	// Get normal vector for boundary site
 	double getRampCoefficient();														// Get inlet ramp coefficient
+	double getAmpCoefficient();														// Get inlet ramp coefficient
 };
 
 #endif // GRID_H

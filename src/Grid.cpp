@@ -303,6 +303,7 @@ void GridClass::applyBCs(int i, int j, int id) {
 
 	// Get ramp coefficient
 	double rampCoefficient = getRampCoefficient();
+	double ampCoefficient = getAmpCoefficient();
 
 	// Get normal direction
 	eDirectionType normalDirection;
@@ -376,6 +377,20 @@ void GridClass::applyBCs(int i, int j, int id) {
 			convectiveBC(j, id);
 			break;
 
+		// Impulsive Velocity BC
+		case eImpulseVelocity:
+
+			// Set velocity to boundary values
+			u_n[id * dims + eX] = u_in[j * dims + eX] * ampCoefficient;
+			u_n[id * dims + eY] = u_in[j * dims + eY] * ampCoefficient;
+
+			// Do regularised BC
+			regularisedBC(i, j, id, normalVector, normalDirection);
+			break;
+
+		// Dummy sites are the sites outside of the domain (don't do anything)
+		case eDummy:
+			break;
 
 		// Fluid (don't do anything)
 		case eFluid:
@@ -390,7 +405,7 @@ void GridClass::regularisedBC(int i, int j, int id, array<int, dims> &normalVect
 	if (normalVector[eX] != 0 && normalVector[eY] != 0) {
 
 		// If velocity BC then extrapolate density
-		if (type[id] == eVelocity || type[id] == eWall || type[id] == eFreeSlip)
+		if (type[id] == eVelocity || type[id] == eWall || type[id] == eFreeSlip || type[id] == eImpulseVelocity)
 			rho_n[id] = Utils::extrapolate(rho, normalVector, 1, i, j);
 	}
 
@@ -413,7 +428,7 @@ void GridClass::regularisedBC(int i, int j, int id, array<int, dims> &normalVect
 		}
 
 		// Velocity condition
-		if (type[id] == eVelocity || type[id] == eWall || type[id] == eFreeSlip) {
+		if (type[id] == eVelocity || type[id] == eWall || type[id] == eFreeSlip || type[id] == eImpulseVelocity) {
 			rho_n[id] = (2.0 * fplus + fzero) / (1.0 - normalVector[normalDirection] * u_n[id * dims + normalDirection]);
 		}
 
@@ -520,15 +535,39 @@ inline array<int, dims> GridClass::getNormalVector(int i, int j, eDirectionType 
 		normalDirection = eY;
 	}
 
+#ifdef BAFFLE
+	// Get normal direction at Nx_Buffer_start
+	if (i == Nx_Buffer_start) {
+		normalVector[eX] = 1;
+		normalDirection = eX;
+	}
+	else if (i == Nx_Buffer_end) {
+		normalVector[eX] = -1;
+		normalDirection = eX;
+	}
+	// Get normal direction at Ny_Buffer
+	if (j == Ny_Buffer) {
+		normalVector[eY] = 1;
+		normalDirection = eY;
+	}
+	// FIXME: is this correct or should it be Ny - Ny_Buffer - 1?
+	else if (j == Ny - Ny_Buffer) {
+		normalVector[eY] = -1;
+		normalDirection = eY;
+	}
+#endif
+
+
 	// Do some extra checking for corners
 	if (normalVector[eX] != 0 && normalVector[eY] != 0) {
 
-		// If surrounded by periodic cells then something has gone wrong
-		if (type[(i + normalVector[eX]) * Ny + j] == eFluid && type[i * Ny + j + normalVector[eY]] == eFluid)
-			ERROR("Corner node is surrounded by fluid lattice sites...exiting");
+		// // If surrounded by periodic cells then something has gone wrong
+		// if (type[(i + normalVector[eX]) * Ny + j] == eFluid && type[i * Ny + j + normalVector[eY]] == eFluid)
+		// 	ERROR("Corner node is surrounded by fluid lattice sites...exiting");
 
-		// Check in x-direction
-		else if (type[(i + normalVector[eX]) * Ny + j] == eFluid) {
+		// // Check in x-direction
+		// else
+		if (type[(i + normalVector[eX]) * Ny + j] == eFluid) {
 			normalDirection = eX;
 			normalVector[eY] = 0;
 		}
@@ -553,6 +592,16 @@ double GridClass::getRampCoefficient() {
 		return (1.0 - cos(M_PI * Dt * t / INLET_RAMP)) / 2.0;
 #endif
 	return 1.0;
+}
+
+// Get inlet amplitude coefficient
+double GridClass::getAmpCoefficient() {
+
+	// Get ramp coefficient
+#ifdef INLET_IMPULSE
+	return (1.0 - cos(M_PI * Dt * t / INLET_IMPULSE)) / 2.0;
+#endif
+	return 0.0;
 }
 
 // Write info at tInfo frequency
@@ -912,6 +961,79 @@ void GridClass::writeVTK() {
 #endif
 }
 
+// Write out tip positions
+void GridClass::writeTracerVelocity() {
+
+	// File names
+	string fnameTrace = "Results/TracerVelocities.out";
+
+	// Check if files already exist
+	bool existingTrace = false;
+	if (boost::filesystem::exists(fnameTrace))
+		existingTrace = true;
+
+	// Open the file
+	ofstream outputTrace;
+	outputTrace.open(fnameTrace.c_str(), ios::app);
+	outputTrace.precision(PRECISION);
+
+	// Handle failure to open
+	if (!outputTrace.is_open())
+		ERROR("Error opening tracer velocities files...exiting");
+
+	// Write out header
+	// if (existingTrace == false)
+		// outputTrace << "Timestep\tTime (s)\tU0\tUL_4\tUL_2\tU3L_4\tUL";
+
+	// Write out
+	// outputTrace << endl << t << "\t" << Dt * t;
+
+	// Velocity
+    // double u0 = u[(0 * Ny + Ny/2) * dims + eX] * (Dx / Dt);
+    // double u1 = u[(Nx/4 * Ny + Ny/2) * dims + eX] * (Dx / Dt);
+    // double u2 = u[(Nx/2 * Ny + Ny/2) * dims + eX] * (Dx / Dt);
+    // double u3 = u[(Nx*3/4 * Ny + Ny/2) * dims + eX] * (Dx / Dt);
+    // double u4 = u[((Nx-1) * Ny + Ny/2) * dims + eX] * (Dx / Dt);
+
+    // outputTrace << "\t" << u0 << "\t" << u1 << "\t" << u2 << "\t" << u3 << "\t" << u4;
+
+
+    if (!existingTrace) {
+        outputTrace << "Timestep\tTime(s)";
+        int y_vals[3] = {Ny / 4, Ny / 2, (3 * Ny) / 4};
+        int num_y = sizeof(y_vals) / sizeof(y_vals[0]);
+
+        for (int j = 0; j < num_y; ++j) {
+            for (int i = 0; i < 20; ++i) {
+                outputTrace << "\tU_" << j << "_" << i;
+                outputTrace << "\tV_" << j << "_" << i;
+            }
+        }
+    }
+
+    // Write timestep and time
+    outputTrace << endl << t << "\t" << Dt * t;
+
+    // Y locations
+    int y_vals[3] = {Ny / 4, Ny / 2, (3 * Ny) / 4};
+    int num_y = sizeof(y_vals) / sizeof(y_vals[0]);
+
+    // X locations
+    for (int j = 0; j < num_y; ++j) {
+        int y = y_vals[j];
+        for (int i = 0; i < 20; ++i) {
+            int x = (i * (Nx - 1)) / 19;
+            int idx_base = (x * Ny + y) * dims;
+            double u_val = u[idx_base + eX] * (Dx / Dt);
+            double v_val = u[idx_base + eY] * (Dx / Dt);
+            outputTrace << "\t" << u_val << "\t" << v_val;
+        }
+    }
+
+	// Close file
+	outputTrace.close();
+}
+
 // Initialise grid values
 void GridClass::initialiseGrid() {
 
@@ -944,14 +1066,51 @@ void GridClass::initialiseGrid() {
 			else if (j == Ny - 1)
 				type[id] = WALL_TOP;
 
+#ifdef BAFFLE
+			if (i == Nx_Buffer_start && (j <= Ny_Buffer || j >= Ny - Ny_Buffer))
+				type[id] = eWall;
+			else if (i == Nx_Buffer_end && (j <= Ny_Buffer || j >= Ny - Ny_Buffer))
+				type[id] = eWall;
+			else if (j == Ny_Buffer && (i <= Nx_Buffer_start || i >= Nx_Buffer_end))
+				type[id] = eWall;
+			else if (j == Ny - Ny_Buffer && (i <= Nx_Buffer_start || i >= Nx_Buffer_end))
+				type[id] = eWall;
+
+			if ((i < Nx_Buffer_start && j < Ny_Buffer) ||
+				(i < Nx_Buffer_start && j > Ny - Ny_Buffer) ||
+				(i > Nx_Buffer_end && j < Ny_Buffer) ||
+				(i > Nx_Buffer_end && j > Ny - Ny_Buffer))
+				type[id] = eDummy;
+			
+			// Channel flow with dummies points
+			// if (j == Ny_Buffer)
+			// 	type[id] = eWall;
+			// else if (j == Ny - Ny_Buffer)
+			// 	type[id] = eWall;
+
+			// if ((j < Ny_Buffer) || (j > Ny - Ny_Buffer))
+			// 	type[id] = eDummy;
+#endif
 			// Add to the BC vector
-			if (type[id] != eFluid)
+			if (type[id] != eFluid && type[id] != eDummy){
 				BCVec.push_back(id);
+			}
 		}
 	}
 
+	double H = height_p;
+#ifdef BAFFLE
+	H = height_p - 2*baffle_height_p;
+#endif
+
 	// Loop through and set inlet profile
 	for (int j = 0; j < Ny; j++) {
+
+#ifdef BAFFLE
+		// Don't loop over dummy lattice sites.
+		if (type[j] == eDummy)
+			continue;
+#endif
 
 #ifndef PROFILE
 
@@ -965,8 +1124,12 @@ void GridClass::initialiseGrid() {
 		if (PROFILE == eParabolic) {
 
 			// Get parameters for working out parabolic profile
-			double R = height_p / 2.0;
+			double R = H / 2.0;
+#ifdef BAFFLE
+			double YPos = (j - Ny_Buffer) * Dx - R;
+#else
 			double YPos = j * Dx - R;
+#endif
 
 			// Set velocity
 			u_in[j * dims + eX] = 1.5 * (uxInlet_p * Dt / Dx) * (1.0 - SQ(YPos / R));
@@ -975,7 +1138,6 @@ void GridClass::initialiseGrid() {
 		else if (PROFILE == eShear) {
 
 			// Get parameters for working out shear profile
-			double H = height_p;
 			double YPos = j * Dx;
 
 			// Set velocity
@@ -984,13 +1146,42 @@ void GridClass::initialiseGrid() {
 		}
 		else if (PROFILE == eBoundaryLayer) {
 
+#ifdef BAFFLE
+			double YPos = (j - Ny_Buffer) * Dx;
+#else
 			// Get parameters for working out shear profile
-			double H = height_p;
 			double YPos = j * Dx;
-
+#endif
 			// Set velocity
 			u_in[j * dims + eX] = ((1.5 * uxInlet_p * Dt / Dx) / SQ(H)) * YPos * (2.0 * H - YPos);
 			u_in[j * dims + eY] = ((1.5 * uyInlet_p * Dt / Dx) / SQ(H)) * YPos * (2.0 * H - YPos);
+		}
+		else if (PROFILE == eSinusoidal) {
+
+			// Get parameters for working out shear profile
+			double YPos = j * Dx;
+
+			// Set velocity abs(1.5 * u_inlet * (sin(2*pi/height * y)))
+			u_in[j * dims + eX] = abs((1.5 * uxInlet_p * Dt / Dx) * sin(2*M_PI*YPos/H));
+			u_in[j * dims + eY] = 0.0;
+		}
+		else if (PROFILE == eVortex) {
+
+			// Get parameters for working out shear profile
+			double VorCenter = 1.0/Dx;
+			double R = H/2;
+
+			double UniformVel = uxInlet_p * Dt / Dx;
+			double VorPosX = UniformVel * (VorCenter + Dt * t);
+			double VorPosY = R;
+
+			double Gamma = 0.005; // Units: (m^2/s)
+			double XPos = 0.0;
+			double YPos = j * Dx;
+			double distSQ = SQ(XPos - VorPosX) + SQ(YPos - VorPosY);
+
+			u_in[j * dims + eX] = (UniformVel + Gamma * (YPos - VorPosY) / (distSQ + 0.2));
+			u_in[j * dims + eY] = (-Gamma * (XPos - VorPosX) / (distSQ + 0.2));
 		}
 #endif
 	}
@@ -1002,7 +1193,7 @@ void GridClass::initialiseGrid() {
 			// Get id
 			int id = i * Ny + j;
 
-#ifdef INLET_RAMP
+#if defined(INLET_RAMP) || defined(INLET_IMPULSE)
 			u[id * dims + eX] = 0.0;
 			u[id * dims + eY] = 0.0;
 #else

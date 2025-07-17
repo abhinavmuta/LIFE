@@ -133,6 +133,7 @@ void Utils::writeInfo(GridClass &grid) {
 	// Write out forces on bodies
 #ifdef TIPS
 	grid.oPtr->writeTips();
+	grid.writeTracerVelocity();
 #endif
 }
 
@@ -279,6 +280,8 @@ string Utils::getBoundaryString(eLatType BCType) {
 		str = "Free Slip BC";
 	else if (BCType == eConvective)
 		str = "Convective BC";
+	else if (BCType == eImpulseVelocity)
+		str = "Velocity BC";
 
 	// Return
 	return str;

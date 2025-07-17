@@ -1519,6 +1519,9 @@ void ObjectsClass::deleteTipsAndForces() {
 
 	// Delete the forces that were written after last restart
 	deleteFileOutput("Results/TotalForces.out");
+
+	// Delete the tracer velocities that were written after last restart
+	deleteFileOutput("Results/TracerVelocities.out");
 }
 
 // Delete data from output files that were written after last restart
