@@ -32,20 +32,17 @@ printf "\nRunning the $case example!\n\n"
 rm -rf $case/LIFE $case/Results
 
 # Copy the params.h file into source folder
-cp $case/params.h ../inc/params.h
-
-# Copy the custom.cpp file into source folder
-# cp $case/custom.h ../inc/custom.h
-# cp $case/custom.cpp ../src/custom.cpp
+# cp $case/params.h ../inc/params.h
 
 # Build LIFE
-(cd .. && make clean && make -j)
+casedir=$(realpath "$case")
+(cd .. && make TEST=$casedir clean && make TEST=$casedir -j)
 
 # Copy LIFE to case folder
-cp ../LIFE $case/.
+# cp ../LIFE $case/.
 
 # Run LIFE
-(cd $case && ./LIFE)
+(cd .. && cd $casedir && ./LIFE)
 
 # Print finish
 printf "\n\nFinished running the $case example!\n"

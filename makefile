@@ -1,36 +1,48 @@
 # LIFE makefile
 
 # Compiler command
-CC=g++
-CFLAGS=-O3 -std=c++11 -fopenmp -Wall -Wextra
-
-# Executable
-EXE=LIFE
+CXX=g++
+CXXFLAGS=-O3 -std=c++11 -fopenmp -Wall -Wextra
 
 # Location of source, header and object files
-DIR=.
-SDIR=$(DIR)/src
-HDIR=$(DIR)/inc
-ODIR=$(DIR)/obj
+SDIR := src
+HDIR := inc
+EXAMPLES := examples
+
+# Set TEST from command line: make TEST=LidDrivenCavity
+TEST ?= examples/LidDrivenCavity
+
+# Normalize test directory and name
+TESTDIR := $(TEST)
+TESTNAME := $(notdir $(patsubst %/, %, $(TEST)))
+BUILDDIR := build/$(TESTNAME)
 
 # Get the sources and object files
 SRCS:=$(wildcard $(SDIR)/*.cpp)
-OBJS:=$(addprefix $(ODIR)/,$(notdir $(SRCS:.cpp=.o)))
+OBJS := $(patsubst $(SDIR)/%.cpp, $(BUILDDIR)/%.o, $(SRCS))
+EXE := $(TESTDIR)/LIFE
 
 # Include and library files
-INC=
+INCLUDES := -I$(TESTDIR) -I$(HDIR)
 LIB=-llapack -lboost_system -lboost_filesystem
 LIB+=-L/usr/local/lib
 
-# Build LIFE
-$(EXE): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LIB)
 
-# Build object files
-$(OBJS): $(ODIR)/%.o : $(SDIR)/%.cpp
-	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
+# ==== Default target ====
+all: $(EXE)
+
+$(EXE): $(OBJS) | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(LIB) $^ -o $@
+
+# Compile src/*.cpp into object files
+$(BUILDDIR)/%.o: $(SDIR)/%.cpp | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+# Create build directory if needed
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
 
 # Clean the project
 .PHONY: clean
 clean:
-	rm -rf $(EXE) $(ODIR) Results *.out && mkdir $(ODIR)
+	rm -rf $(EXE) $(BUILDDIR) $(TESTDIR)/Results
